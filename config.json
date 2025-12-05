@@ -2,10 +2,10 @@
   "paths": {
     "base_dir": ".",
     "log_dir": "logs",
-    "kismet_logs": "/home/matt/kismet_logs/*.kismet",
+    "kismet_logs": "/home/student/Chasing-Your-Tail-NG/kismetlogs/*.kismet",
     "ignore_lists": {
-      "mac": "mac_list.py",
-      "ssid": "ssid_list.py"
+      "mac": "mac_list.json",
+      "ssid": "ssid_list.json"
     }
   },
   "timing": {
@@ -23,5 +23,30 @@
     "lat_max": 37.0,
     "lon_min": -114.8,
     "lon_max": -109.0
+  },
+  "stop_comparison": {
+    "enabled": true,
+    "radius_meters": 100,
+    "minimum_occurrences": 2,
+    "stops": [
+      {
+        "name": "Stop 1 - Home",
+        "latitude": 33.4484,
+        "longitude": -112.0740,
+        "description": "Starting location"
+      },
+      {
+        "name": "Stop 2 - Coffee Shop",
+        "latitude": 33.4500,
+        "longitude": -112.0760,
+        "description": "First stop on route"
+      },
+      {
+        "name": "Stop 3 - Office",
+        "latitude": 33.4520,
+        "longitude": -112.0800,
+        "description": "Destination"
+      }
+    ]
   }
 }

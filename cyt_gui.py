@@ -14,10 +14,19 @@ import json
 import time
 import threading
 from datetime import datetime
+import webbrowser
 
 # Set test mode for GUI before any imports
 import os
 os.environ['CYT_TEST_MODE'] = 'true'  # Enable test mode for GUI
+
+# Import stop comparison analyzer
+try:
+    from stop_comparison_analyzer import StopComparisonAnalyzer
+    STOP_COMPARISON_AVAILABLE = True
+except ImportError:
+    STOP_COMPARISON_AVAILABLE = False
+    print("Note: stop_comparison_analyzer not found - Stop Comparison feature disabled")
 
 class CYTGui:
     def __init__(self):
@@ -269,6 +278,58 @@ class CYTGui:
             command=self.quit_application
         )
         self.quit_btn.pack(side=tk.RIGHT)
+        
+        # Third row - Stop Comparison (NEW FEATURE)
+        third_row = tk.Frame(controls_frame, bg='#2a2a2a')
+        third_row.pack(fill=tk.X, pady=(10, 0))
+        
+        # Stop Comparison button
+        self.stop_compare_btn = tk.Button(
+            third_row,
+            text="📍 Stop\nComparison",
+            font=('Arial', 9, 'bold'),
+            width=12,
+            height=2,
+            fg='#ffffff',
+            bg='#9c27b0',  # Purple
+            activebackground='#7b1fa2',
+            relief='raised',
+            bd=3,
+            command=self.stop_comparison_threaded
+        )
+        self.stop_compare_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Configure Stops button
+        self.config_stops_btn = tk.Button(
+            third_row,
+            text="⚙️ Configure\nStops",
+            font=('Arial', 9, 'bold'),
+            width=12,
+            height=2,
+            fg='#ffffff',
+            bg='#607d8b',  # Blue-gray
+            activebackground='#455a64',
+            relief='raised',
+            bd=3,
+            command=self.configure_stops
+        )
+        self.config_stops_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Stop comparison status label
+        self.stop_status_label = tk.Label(
+            third_row,
+            text="",
+            font=('Arial', 9),
+            fg='#888888',
+            bg='#2a2a2a'
+        )
+        self.stop_status_label.pack(side=tk.LEFT, padx=10)
+        self._update_stop_comparison_status()
+        
+        # Disable if module not available
+        if not STOP_COMPARISON_AVAILABLE:
+            self.stop_compare_btn.config(state='disabled')
+            self.stop_status_label.config(text="⚠️ Module not found", fg='#ffaa00')
         
     def create_log_section(self, parent):
         """Create log output section"""
@@ -696,6 +757,206 @@ class CYTGui:
             self.log_message(f"❌ Error running surveillance analysis: {e}")
         finally:
             self.surveillance_btn.config(state='normal', text='🗺️ Surveillance\nAnalysis')
+    
+    def _update_stop_comparison_status(self):
+        """Update the stop comparison status label"""
+        if not STOP_COMPARISON_AVAILABLE:
+            return
+            
+        try:
+            with open('config.json', 'r') as f:
+                config = json.load(f)
+            stop_config = config.get('stop_comparison', {})
+            stops = stop_config.get('stops', [])
+            
+            if stops:
+                self.stop_status_label.config(
+                    text=f"✓ {len(stops)} stops configured",
+                    fg='#28a745'
+                )
+            else:
+                self.stop_status_label.config(
+                    text="No stops configured",
+                    fg='#ffaa00'
+                )
+        except:
+            self.stop_status_label.config(
+                text="Config error",
+                fg='#dc3545'
+            )
+    
+    def stop_comparison_threaded(self):
+        """Run stop comparison analysis in background"""
+        if not STOP_COMPARISON_AVAILABLE:
+            messagebox.showerror(
+                "Module Not Found",
+                "stop_comparison_analyzer.py is required.\n"
+                "Please ensure it's in the same directory."
+            )
+            return
+        
+        # Check if stops are configured
+        try:
+            with open('config.json', 'r') as f:
+                config = json.load(f)
+            stop_config = config.get('stop_comparison', {})
+            stops = stop_config.get('stops', [])
+            
+            if len(stops) < 2:
+                messagebox.showwarning(
+                    "Configuration Required",
+                    "Please configure at least 2 stops in config.json\n"
+                    "under the 'stop_comparison' section.\n\n"
+                    "Click 'Configure Stops' to see the required format."
+                )
+                return
+        except Exception as e:
+            messagebox.showerror("Config Error", f"Could not load config.json: {e}")
+            return
+        
+        self.log_message(f"📍 Starting Stop Comparison Analysis ({len(stops)} stops)...")
+        self.stop_compare_btn.config(state='disabled', text='Analyzing...')
+        threading.Thread(target=self._stop_comparison_background, daemon=True).start()
+    
+    def _stop_comparison_background(self):
+        """Background stop comparison analysis"""
+        try:
+            analyzer = StopComparisonAnalyzer('config.json')
+            
+            # Log configured stops
+            for stop in analyzer.stops:
+                self.log_message(f"   📍 {stop.name}: ({stop.latitude:.4f}, {stop.longitude:.4f})")
+            
+            self.log_message(f"   🔍 Search radius: {analyzer.radius_meters}m")
+            
+            # Run analysis
+            results = analyzer.run_analysis()
+            
+            # Generate reports
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_dir = './surveillance_reports/'
+            os.makedirs(output_dir, exist_ok=True)
+            
+            text_path = os.path.join(output_dir, f'stop_comparison_{timestamp}.txt')
+            html_path = os.path.join(output_dir, f'stop_comparison_{timestamp}.html')
+            
+            # Generate reports
+            analyzer.generate_report(text_path)
+            analyzer.generate_html_report(html_path)
+            
+            total_suspicious = results['total_suspicious']
+            
+            if total_suspicious > 0:
+                self.log_message(f"⚠️ FOUND {total_suspicious} DEVICES AT MULTIPLE STOPS!")
+                self.log_message(f"   Suspicious BSSIDs: {len(results['suspicious_bssids'])}")
+                self.log_message(f"   Suspicious SSIDs: {len(results['suspicious_ssids'])}")
+                self.log_message(f"   Suspicious Probes: {len(results['suspicious_probes'])}")
+                
+                # Show details of top suspicious items
+                for item in results['suspicious_bssids'][:3]:
+                    self.log_message(f"   🚨 {item['id']} seen at: {', '.join(item['stops'])}")
+            else:
+                self.log_message("✅ No devices found at multiple stops")
+            
+            self.log_message(f"📄 Text report: {text_path}")
+            self.log_message(f"🌐 HTML report: {html_path}")
+            self.log_message("✅ Stop comparison analysis complete!")
+            
+            # Ask to open report
+            self.root.after(0, lambda: self._ask_open_stop_report(html_path, total_suspicious))
+            
+        except Exception as e:
+            self.log_message(f"❌ Error running stop comparison: {e}")
+            import traceback
+            self.log_message(traceback.format_exc())
+        finally:
+            self.stop_compare_btn.config(state='normal', text='📍 Stop\nComparison')
+    
+    def _ask_open_stop_report(self, html_path, total_suspicious):
+        """Ask user if they want to open the HTML report"""
+        if os.path.exists(html_path):
+            if total_suspicious > 0:
+                msg = f"⚠️ Found {total_suspicious} suspicious devices!\n\nOpen the HTML report in your browser?"
+            else:
+                msg = "Analysis complete. No suspicious devices found.\n\nOpen the HTML report?"
+            
+            if messagebox.askyesno("Stop Comparison Complete", msg):
+                webbrowser.open(f'file://{os.path.abspath(html_path)}')
+    
+    def configure_stops(self):
+        """Show stop configuration dialog"""
+        # Load current config
+        try:
+            with open('config.json', 'r') as f:
+                config = json.load(f)
+        except:
+            config = {}
+        
+        stop_config = config.get('stop_comparison', {})
+        stops = stop_config.get('stops', [])
+        radius = stop_config.get('radius_meters', 100)
+        min_occur = stop_config.get('minimum_occurrences', 2)
+        
+        # Build info message
+        if stops:
+            stops_info = "\n".join([
+                f"  {i+1}. {s.get('name', 'Unnamed')}\n"
+                f"      Lat: {s.get('latitude', 0)}, Lon: {s.get('longitude', 0)}"
+                for i, s in enumerate(stops)
+            ])
+        else:
+            stops_info = "  (No stops configured)"
+        
+        msg = f"""STOP COMPARISON CONFIGURATION
+
+Current Settings:
+  Search Radius: {radius} meters
+  Minimum Occurrences: {min_occur}
+
+Configured Stops ({len(stops)}):
+{stops_info}
+
+To configure stops, add this to config.json:
+
+"stop_comparison": {{
+  "enabled": true,
+  "radius_meters": 100,
+  "minimum_occurrences": 2,
+  "stops": [
+    {{
+      "name": "Stop 1 - Home",
+      "latitude": 33.4484,
+      "longitude": -112.0740,
+      "description": "Starting location"
+    }},
+    {{
+      "name": "Stop 2 - Work",
+      "latitude": 33.4520,
+      "longitude": -112.0800,
+      "description": "Destination"
+    }}
+  ]
+}}
+
+Would you like to open config.json for editing?"""
+        
+        if messagebox.askyesno("Stop Configuration", msg):
+            try:
+                # Try to open with default editor
+                if os.name == 'nt':
+                    os.startfile('config.json')
+                else:
+                    # Try common Linux editors
+                    editors = ['xdg-open', 'gedit', 'nano', 'vim']
+                    for editor in editors:
+                        try:
+                            subprocess.Popen([editor, 'config.json'])
+                            break
+                        except:
+                            continue
+            except Exception as e:
+                self.log_message(f"Could not open editor: {e}")
+                self.log_message("Please edit config.json manually")
             
     def quit_application(self):
         """Quit application with cleanup"""
