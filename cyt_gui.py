@@ -147,25 +147,26 @@ class CYTGui:
         self.creds_status.pack(side=tk.LEFT)
         
     def create_control_buttons(self, parent):
-        """Create the main control buttons (Fisher Price style but professional)"""
-        controls_frame = tk.LabelFrame(
+        """Create the main control buttons organized into logical sections"""
+        
+        # ===== SECTION 1: System =====
+        system_frame = tk.LabelFrame(
             parent,
-            text="Controls",
+            text="System",
             font=('Arial', 12, 'bold'),
             fg='#ffffff',
             bg='#2a2a2a',
             padx=10,
             pady=10
         )
-        controls_frame.pack(fill=tk.X, pady=(0, 20))
+        system_frame.pack(fill=tk.X, pady=(0, 10))
         
-        # Top row buttons
-        top_row = tk.Frame(controls_frame, bg='#2a2a2a')
-        top_row.pack(fill=tk.X, pady=(0, 10))
+        system_row = tk.Frame(system_frame, bg='#2a2a2a')
+        system_row.pack(fill=tk.X)
         
-        # System status button
+        # Check System Status button
         self.status_btn = tk.Button(
-            top_row,
+            system_row,
             text="📊 Check\nSystem Status",
             font=('Arial', 9, 'bold'),
             width=12,
@@ -179,9 +180,9 @@ class CYTGui:
         )
         self.status_btn.pack(side=tk.LEFT, padx=(0, 10))
         
-        # Create ignore lists button
+        # Create Ignore Lists button
         self.create_ignore_btn = tk.Button(
-            top_row,
+            system_row,
             text="📝 Create\nIgnore Lists",
             font=('Arial', 9, 'bold'),
             width=12,
@@ -195,9 +196,9 @@ class CYTGui:
         )
         self.create_ignore_btn.pack(side=tk.LEFT, padx=(0, 10))
         
-        # Delete ignore lists button
+        # Delete Ignore Lists button
         self.delete_ignore_btn = tk.Button(
-            top_row,
+            system_row,
             text="🗑️ Delete\nIgnore Lists",
             font=('Arial', 9, 'bold'),
             width=12,
@@ -211,19 +212,30 @@ class CYTGui:
         )
         self.delete_ignore_btn.pack(side=tk.LEFT)
         
-        # Bottom row buttons
-        bottom_row = tk.Frame(controls_frame, bg='#2a2a2a')
-        bottom_row.pack(fill=tk.X)
+        # ===== SECTION 2: Time Based Surveillance Analysis =====
+        time_frame = tk.LabelFrame(
+            parent,
+            text="Time Based Surveillance Analysis",
+            font=('Arial', 12, 'bold'),
+            fg='#ffffff',
+            bg='#2a2a2a',
+            padx=10,
+            pady=10
+        )
+        time_frame.pack(fill=tk.X, pady=(0, 10))
         
-        # Run CYT button (main action)
+        time_row = tk.Frame(time_frame, bg='#2a2a2a')
+        time_row.pack(fill=tk.X)
+        
+        # Start Chasing Your Tail button
         self.run_cyt_btn = tk.Button(
-            bottom_row,
+            time_row,
             text="🚀 START\nCHASING YOUR TAIL",
             font=('Arial', 11, 'bold'),
             width=18,
             height=2,
             fg='#ffffff',
-            bg='#ff6b35',  # Distinctive orange
+            bg='#ff6b35',
             activebackground='#e55a2b',
             relief='raised',
             bd=4,
@@ -231,9 +243,9 @@ class CYTGui:
         )
         self.run_cyt_btn.pack(side=tk.LEFT, padx=(0, 10))
         
-        # Analyze logs button
+        # Analyze Logs button
         self.analyze_btn = tk.Button(
-            bottom_row,
+            time_row,
             text="📈 Analyze\nLogs",
             font=('Arial', 9, 'bold'),
             width=12,
@@ -247,9 +259,9 @@ class CYTGui:
         )
         self.analyze_btn.pack(side=tk.LEFT, padx=(0, 10))
         
-        # Surveillance analysis button
+        # Surveillance Analysis button
         self.surveillance_btn = tk.Button(
-            bottom_row,
+            time_row,
             text="🗺️ Surveillance\nAnalysis",
             font=('Arial', 9, 'bold'),
             width=12,
@@ -265,7 +277,7 @@ class CYTGui:
         
         # Quit button
         self.quit_btn = tk.Button(
-            bottom_row,
+            time_row,
             text="❌ QUIT",
             font=('Arial', 9, 'bold'),
             width=12,
@@ -279,19 +291,30 @@ class CYTGui:
         )
         self.quit_btn.pack(side=tk.RIGHT)
         
-        # Third row - Stop Comparison (NEW FEATURE)
-        third_row = tk.Frame(controls_frame, bg='#2a2a2a')
-        third_row.pack(fill=tk.X, pady=(10, 0))
+        # ===== SECTION 3: Space Based Surveillance Analysis =====
+        space_frame = tk.LabelFrame(
+            parent,
+            text="Space Based Surveillance Analysis",
+            font=('Arial', 12, 'bold'),
+            fg='#ffffff',
+            bg='#2a2a2a',
+            padx=10,
+            pady=10
+        )
+        space_frame.pack(fill=tk.X, pady=(0, 10))
         
-        # Configure Stops button (first - you configure before running)
+        space_row = tk.Frame(space_frame, bg='#2a2a2a')
+        space_row.pack(fill=tk.X)
+        
+        # Configure Stops button
         self.config_stops_btn = tk.Button(
-            third_row,
+            space_row,
             text="⚙️ Configure\nStops",
             font=('Arial', 9, 'bold'),
             width=12,
             height=2,
             fg='#ffffff',
-            bg='#607d8b',  # Blue-gray
+            bg='#607d8b',
             activebackground='#455a64',
             relief='raised',
             bd=3,
@@ -299,15 +322,15 @@ class CYTGui:
         )
         self.config_stops_btn.pack(side=tk.LEFT, padx=(0, 10))
         
-        # Stop Comparison button (second - you run after configuring)
+        # Stop Comparison button
         self.stop_compare_btn = tk.Button(
-            third_row,
+            space_row,
             text="📍 Stop\nComparison",
             font=('Arial', 9, 'bold'),
             width=12,
             height=2,
             fg='#ffffff',
-            bg='#9c27b0',  # Purple
+            bg='#9c27b0',
             activebackground='#7b1fa2',
             relief='raised',
             bd=3,
@@ -317,7 +340,7 @@ class CYTGui:
         
         # Stop comparison status label
         self.stop_status_label = tk.Label(
-            third_row,
+            space_row,
             text="",
             font=('Arial', 9),
             fg='#888888',
