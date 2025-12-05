@@ -283,23 +283,7 @@ class CYTGui:
         third_row = tk.Frame(controls_frame, bg='#2a2a2a')
         third_row.pack(fill=tk.X, pady=(10, 0))
         
-        # Stop Comparison button
-        self.stop_compare_btn = tk.Button(
-            third_row,
-            text="📍 Stop\nComparison",
-            font=('Arial', 9, 'bold'),
-            width=12,
-            height=2,
-            fg='#ffffff',
-            bg='#9c27b0',  # Purple
-            activebackground='#7b1fa2',
-            relief='raised',
-            bd=3,
-            command=self.stop_comparison_threaded
-        )
-        self.stop_compare_btn.pack(side=tk.LEFT, padx=(0, 10))
-        
-        # Configure Stops button
+        # Configure Stops button (first - you configure before running)
         self.config_stops_btn = tk.Button(
             third_row,
             text="⚙️ Configure\nStops",
@@ -314,6 +298,22 @@ class CYTGui:
             command=self.configure_stops
         )
         self.config_stops_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Stop Comparison button (second - you run after configuring)
+        self.stop_compare_btn = tk.Button(
+            third_row,
+            text="📍 Stop\nComparison",
+            font=('Arial', 9, 'bold'),
+            width=12,
+            height=2,
+            fg='#ffffff',
+            bg='#9c27b0',  # Purple
+            activebackground='#7b1fa2',
+            relief='raised',
+            bd=3,
+            command=self.stop_comparison_threaded
+        )
+        self.stop_compare_btn.pack(side=tk.LEFT, padx=(0, 10))
         
         # Stop comparison status label
         self.stop_status_label = tk.Label(
