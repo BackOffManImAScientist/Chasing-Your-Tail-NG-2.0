@@ -84,7 +84,12 @@ class StopComparisonAnalyzer:
         # Detailed device tracking
         self.devices: Dict[str, WirelessDevice] = {}
         
+        # Ignore lists
+        self.ignored_macs: Set[str] = set()
+        self.ignored_ssids: Set[str] = set()
+        
         self._parse_stop_config()
+        self._load_ignore_lists()
     
     def _load_config(self, config_path: str) -> dict:
         """Load configuration from JSON file."""
@@ -129,6 +134,45 @@ class StopComparisonAnalyzer:
                 logger.info(f"Loaded stop: {stop.name} ({stop.latitude}, {stop.longitude})")
             except (KeyError, ValueError) as e:
                 logger.error(f"Invalid stop configuration: {e}")
+    
+    def _load_ignore_lists(self):
+        """Load ignore lists to filter out known/owned devices."""
+        ignore_dir = self.config.get('paths', {}).get('ignore_lists_dir', './ignore_lists/')
+        
+        # Load MAC ignore list
+        mac_file = os.path.join(ignore_dir, 'mac_list.json')
+        if os.path.exists(mac_file):
+            try:
+                with open(mac_file, 'r') as f:
+                    mac_list = json.load(f)
+                    # Normalize MAC addresses to uppercase
+                    self.ignored_macs = set(mac.upper() for mac in mac_list if mac)
+                    logger.info(f"Loaded {len(self.ignored_macs)} ignored MACs from {mac_file}")
+            except (json.JSONDecodeError, Exception) as e:
+                logger.warning(f"Could not load MAC ignore list: {e}")
+        else:
+            logger.info(f"No MAC ignore list found at {mac_file}")
+        
+        # Load SSID ignore list
+        ssid_file = os.path.join(ignore_dir, 'ssid_list.json')
+        if os.path.exists(ssid_file):
+            try:
+                with open(ssid_file, 'r') as f:
+                    ssid_list = json.load(f)
+                    self.ignored_ssids = set(ssid for ssid in ssid_list if ssid)
+                    logger.info(f"Loaded {len(self.ignored_ssids)} ignored SSIDs from {ssid_file}")
+            except (json.JSONDecodeError, Exception) as e:
+                logger.warning(f"Could not load SSID ignore list: {e}")
+        else:
+            logger.info(f"No SSID ignore list found at {ssid_file}")
+    
+    def is_ignored(self, identifier: str, identifier_type: str) -> bool:
+        """Check if a device/network should be ignored."""
+        if identifier_type == 'BSSID':
+            return identifier.upper() in self.ignored_macs
+        elif identifier_type in ('SSID', 'PROBE'):
+            return identifier in self.ignored_ssids
+        return False
     
     @staticmethod
     def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -359,14 +403,21 @@ class StopComparisonAnalyzer:
         return True
     
     def find_multi_stop_devices(self) -> Dict[str, List[WirelessDevice]]:
-        """Find devices that appear at multiple stops."""
+        """Find devices that appear at multiple stops (excluding ignored devices)."""
         results = {
             'bssids': [],
             'ssids': [],
             'probes': []
         }
         
+        ignored_count = 0
+        
         for device_key, device in self.devices.items():
+            # Skip ignored devices
+            if self.is_ignored(device.identifier, device.identifier_type):
+                ignored_count += 1
+                continue
+            
             if len(device.stops_seen) >= self.minimum_occurrences:
                 if device.identifier_type == 'BSSID':
                     results['bssids'].append(device)
@@ -374,6 +425,9 @@ class StopComparisonAnalyzer:
                     results['ssids'].append(device)
                 elif device.identifier_type == 'PROBE':
                     results['probes'].append(device)
+        
+        if ignored_count > 0:
+            logger.info(f"Filtered out {ignored_count} ignored devices from results")
         
         # Sort by number of stops seen (descending)
         for key in results:
@@ -385,6 +439,14 @@ class StopComparisonAnalyzer:
         """Generate a text comparison report."""
         multi_stop_devices = self.find_multi_stop_devices()
         
+        # Ignore list status
+        ignore_status = []
+        if self.ignored_macs:
+            ignore_status.append(f"{len(self.ignored_macs)} MACs")
+        if self.ignored_ssids:
+            ignore_status.append(f"{len(self.ignored_ssids)} SSIDs")
+        ignore_str = f"Filtering: {', '.join(ignore_status)}" if ignore_status else "Filtering: None (no ignore lists loaded)"
+        
         report_lines = [
             "=" * 80,
             "STOP COMPARISON REPORT - Chasing Your Tail NG",
@@ -392,6 +454,7 @@ class StopComparisonAnalyzer:
             f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             f"Minimum occurrences threshold: {self.minimum_occurrences}",
             f"Search radius: {self.radius_meters} meters",
+            f"{ignore_str}",
             "",
             "-" * 80,
             "CONFIGURED STOPS",
@@ -633,6 +696,7 @@ class StopComparisonAnalyzer:
         
         html += f"""        </table>
         <p><strong>Search Radius:</strong> {self.radius_meters}m | <strong>Min Occurrences:</strong> {self.minimum_occurrences}</p>
+        <p><strong>🛡️ Ignore Lists:</strong> {len(self.ignored_macs)} MACs, {len(self.ignored_ssids)} SSIDs filtered out</p>
     </div>
     
     <div class="stat-grid">
