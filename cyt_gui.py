@@ -884,7 +884,7 @@ class CYTGui:
                 webbrowser.open(f'file://{os.path.abspath(html_path)}')
     
     def configure_stops(self):
-        """Show stop configuration dialog"""
+        """Show stop configuration GUI window"""
         # Load current config
         try:
             with open('config.json', 'r') as f:
@@ -893,70 +893,459 @@ class CYTGui:
             config = {}
         
         stop_config = config.get('stop_comparison', {})
-        stops = stop_config.get('stops', [])
-        radius = stop_config.get('radius_meters', 100)
-        min_occur = stop_config.get('minimum_occurrences', 2)
+        current_stops = stop_config.get('stops', [])
+        current_radius = stop_config.get('radius_meters', 100)
+        current_min_occur = stop_config.get('minimum_occurrences', 2)
         
-        # Build info message
-        if stops:
-            stops_info = "\n".join([
-                f"  {i+1}. {s.get('name', 'Unnamed')}\n"
-                f"      Lat: {s.get('latitude', 0)}, Lon: {s.get('longitude', 0)}"
-                for i, s in enumerate(stops)
-            ])
-        else:
-            stops_info = "  (No stops configured)"
+        # Create configuration window
+        config_window = tk.Toplevel(self.root)
+        config_window.title("Configure Comparison Stops")
+        config_window.geometry("600x700")
+        config_window.configure(bg='#1a1a1a')
+        config_window.transient(self.root)
+        config_window.grab_set()
         
-        msg = f"""STOP COMPARISON CONFIGURATION
-
-Current Settings:
-  Search Radius: {radius} meters
-  Minimum Occurrences: {min_occur}
-
-Configured Stops ({len(stops)}):
-{stops_info}
-
-To configure stops, add this to config.json:
-
-"stop_comparison": {{
-  "enabled": true,
-  "radius_meters": 100,
-  "minimum_occurrences": 2,
-  "stops": [
-    {{
-      "name": "Stop 1 - Home",
-      "latitude": 33.4484,
-      "longitude": -112.0740,
-      "description": "Starting location"
-    }},
-    {{
-      "name": "Stop 2 - Work",
-      "latitude": 33.4520,
-      "longitude": -112.0800,
-      "description": "Destination"
-    }}
-  ]
-}}
-
-Would you like to open config.json for editing?"""
+        # Main frame with scrollbar capability
+        main_frame = tk.Frame(config_window, bg='#1a1a1a', padx=20, pady=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
         
-        if messagebox.askyesno("Stop Configuration", msg):
+        # Title
+        title_label = tk.Label(
+            main_frame,
+            text="📍 Configure Comparison Stops",
+            font=('Arial', 14, 'bold'),
+            fg='#00ff41',
+            bg='#1a1a1a'
+        )
+        title_label.pack(pady=(0, 15))
+        
+        # Settings frame
+        settings_frame = tk.LabelFrame(
+            main_frame,
+            text="Settings",
+            font=('Arial', 10, 'bold'),
+            fg='#ffffff',
+            bg='#2a2a2a',
+            padx=10,
+            pady=10
+        )
+        settings_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        # Radius setting
+        radius_row = tk.Frame(settings_frame, bg='#2a2a2a')
+        radius_row.pack(fill=tk.X, pady=5)
+        
+        tk.Label(
+            radius_row,
+            text="Search Radius (meters):",
+            font=('Arial', 10),
+            fg='#ffffff',
+            bg='#2a2a2a'
+        ).pack(side=tk.LEFT)
+        
+        radius_var = tk.StringVar(value=str(current_radius))
+        radius_entry = tk.Entry(
+            radius_row,
+            textvariable=radius_var,
+            width=10,
+            font=('Arial', 10),
+            bg='#3a3a3a',
+            fg='#ffffff',
+            insertbackground='#ffffff'
+        )
+        radius_entry.pack(side=tk.LEFT, padx=10)
+        
+        # Min occurrences setting
+        min_row = tk.Frame(settings_frame, bg='#2a2a2a')
+        min_row.pack(fill=tk.X, pady=5)
+        
+        tk.Label(
+            min_row,
+            text="Minimum Stops to Flag:",
+            font=('Arial', 10),
+            fg='#ffffff',
+            bg='#2a2a2a'
+        ).pack(side=tk.LEFT)
+        
+        min_var = tk.StringVar(value=str(current_min_occur))
+        min_spinbox = tk.Spinbox(
+            min_row,
+            from_=2,
+            to=5,
+            textvariable=min_var,
+            width=5,
+            font=('Arial', 10),
+            bg='#3a3a3a',
+            fg='#ffffff'
+        )
+        min_spinbox.pack(side=tk.LEFT, padx=10)
+        
+        # Number of stops selector
+        num_stops_frame = tk.LabelFrame(
+            main_frame,
+            text="Number of Stops",
+            font=('Arial', 10, 'bold'),
+            fg='#ffffff',
+            bg='#2a2a2a',
+            padx=10,
+            pady=10
+        )
+        num_stops_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        num_stops_row = tk.Frame(num_stops_frame, bg='#2a2a2a')
+        num_stops_row.pack(fill=tk.X)
+        
+        tk.Label(
+            num_stops_row,
+            text="How many stops to compare (2-5):",
+            font=('Arial', 10),
+            fg='#ffffff',
+            bg='#2a2a2a'
+        ).pack(side=tk.LEFT)
+        
+        num_stops_var = tk.StringVar(value=str(max(2, len(current_stops))))
+        num_stops_spinbox = tk.Spinbox(
+            num_stops_row,
+            from_=2,
+            to=5,
+            textvariable=num_stops_var,
+            width=5,
+            font=('Arial', 10),
+            bg='#3a3a3a',
+            fg='#ffffff',
+            command=lambda: update_stop_fields()
+        )
+        num_stops_spinbox.pack(side=tk.LEFT, padx=10)
+        
+        # Stops entry frame (scrollable)
+        stops_container = tk.LabelFrame(
+            main_frame,
+            text="Stop Locations",
+            font=('Arial', 10, 'bold'),
+            fg='#ffffff',
+            bg='#2a2a2a',
+            padx=10,
+            pady=10
+        )
+        stops_container.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+        
+        # Canvas for scrolling
+        canvas = tk.Canvas(stops_container, bg='#2a2a2a', highlightthickness=0)
+        scrollbar = tk.Scrollbar(stops_container, orient="vertical", command=canvas.yview)
+        stops_frame = tk.Frame(canvas, bg='#2a2a2a')
+        
+        stops_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=stops_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Store entry widgets
+        stop_entries = []
+        
+        def create_stop_entry(parent, index, stop_data=None):
+            """Create entry fields for a single stop"""
+            frame = tk.Frame(parent, bg='#2a2a2a', pady=10)
+            frame.pack(fill=tk.X, pady=5)
+            
+            # Stop header
+            tk.Label(
+                frame,
+                text=f"Stop {index + 1}",
+                font=('Arial', 11, 'bold'),
+                fg='#00d4ff',
+                bg='#2a2a2a'
+            ).pack(anchor='w')
+            
+            # Name row
+            name_row = tk.Frame(frame, bg='#2a2a2a')
+            name_row.pack(fill=tk.X, pady=2)
+            
+            tk.Label(
+                name_row,
+                text="Name:",
+                font=('Arial', 9),
+                fg='#cccccc',
+                bg='#2a2a2a',
+                width=12,
+                anchor='w'
+            ).pack(side=tk.LEFT)
+            
+            name_var = tk.StringVar(value=stop_data.get('name', f'Stop {index + 1}') if stop_data else f'Stop {index + 1}')
+            name_entry = tk.Entry(
+                name_row,
+                textvariable=name_var,
+                width=30,
+                font=('Arial', 10),
+                bg='#3a3a3a',
+                fg='#ffffff',
+                insertbackground='#ffffff'
+            )
+            name_entry.pack(side=tk.LEFT, padx=5)
+            
+            # Latitude row
+            lat_row = tk.Frame(frame, bg='#2a2a2a')
+            lat_row.pack(fill=tk.X, pady=2)
+            
+            tk.Label(
+                lat_row,
+                text="Latitude:",
+                font=('Arial', 9),
+                fg='#cccccc',
+                bg='#2a2a2a',
+                width=12,
+                anchor='w'
+            ).pack(side=tk.LEFT)
+            
+            lat_var = tk.StringVar(value=str(stop_data.get('latitude', '')) if stop_data else '')
+            lat_entry = tk.Entry(
+                lat_row,
+                textvariable=lat_var,
+                width=20,
+                font=('Arial', 10),
+                bg='#3a3a3a',
+                fg='#ffffff',
+                insertbackground='#ffffff'
+            )
+            lat_entry.pack(side=tk.LEFT, padx=5)
+            
+            tk.Label(
+                lat_row,
+                text="(e.g., 33.4484)",
+                font=('Arial', 8),
+                fg='#888888',
+                bg='#2a2a2a'
+            ).pack(side=tk.LEFT, padx=5)
+            
+            # Longitude row
+            lon_row = tk.Frame(frame, bg='#2a2a2a')
+            lon_row.pack(fill=tk.X, pady=2)
+            
+            tk.Label(
+                lon_row,
+                text="Longitude:",
+                font=('Arial', 9),
+                fg='#cccccc',
+                bg='#2a2a2a',
+                width=12,
+                anchor='w'
+            ).pack(side=tk.LEFT)
+            
+            lon_var = tk.StringVar(value=str(stop_data.get('longitude', '')) if stop_data else '')
+            lon_entry = tk.Entry(
+                lon_row,
+                textvariable=lon_var,
+                width=20,
+                font=('Arial', 10),
+                bg='#3a3a3a',
+                fg='#ffffff',
+                insertbackground='#ffffff'
+            )
+            lon_entry.pack(side=tk.LEFT, padx=5)
+            
+            tk.Label(
+                lon_row,
+                text="(e.g., -112.0740)",
+                font=('Arial', 8),
+                fg='#888888',
+                bg='#2a2a2a'
+            ).pack(side=tk.LEFT, padx=5)
+            
+            # Description row
+            desc_row = tk.Frame(frame, bg='#2a2a2a')
+            desc_row.pack(fill=tk.X, pady=2)
+            
+            tk.Label(
+                desc_row,
+                text="Description:",
+                font=('Arial', 9),
+                fg='#cccccc',
+                bg='#2a2a2a',
+                width=12,
+                anchor='w'
+            ).pack(side=tk.LEFT)
+            
+            desc_var = tk.StringVar(value=stop_data.get('description', '') if stop_data else '')
+            desc_entry = tk.Entry(
+                desc_row,
+                textvariable=desc_var,
+                width=30,
+                font=('Arial', 10),
+                bg='#3a3a3a',
+                fg='#ffffff',
+                insertbackground='#ffffff'
+            )
+            desc_entry.pack(side=tk.LEFT, padx=5)
+            
+            # Separator
+            tk.Frame(frame, bg='#444444', height=1).pack(fill=tk.X, pady=(10, 0))
+            
+            return {
+                'frame': frame,
+                'name': name_var,
+                'latitude': lat_var,
+                'longitude': lon_var,
+                'description': desc_var
+            }
+        
+        def update_stop_fields():
+            """Update the number of stop entry fields"""
+            # Clear existing entries
+            for entry in stop_entries:
+                entry['frame'].destroy()
+            stop_entries.clear()
+            
+            # Create new entries
             try:
-                # Try to open with default editor
-                if os.name == 'nt':
-                    os.startfile('config.json')
-                else:
-                    # Try common Linux editors
-                    editors = ['xdg-open', 'gedit', 'nano', 'vim']
-                    for editor in editors:
-                        try:
-                            subprocess.Popen([editor, 'config.json'])
-                            break
-                        except:
-                            continue
+                num_stops = int(num_stops_var.get())
+            except:
+                num_stops = 2
+            
+            num_stops = max(2, min(5, num_stops))
+            
+            for i in range(num_stops):
+                stop_data = current_stops[i] if i < len(current_stops) else None
+                entry = create_stop_entry(stops_frame, i, stop_data)
+                stop_entries.append(entry)
+        
+        def save_configuration():
+            """Save the configuration to config.json"""
+            try:
+                # Validate and collect data
+                new_stops = []
+                for i, entry in enumerate(stop_entries):
+                    name = entry['name'].get().strip()
+                    lat_str = entry['latitude'].get().strip()
+                    lon_str = entry['longitude'].get().strip()
+                    desc = entry['description'].get().strip()
+                    
+                    if not name:
+                        messagebox.showerror("Validation Error", f"Stop {i+1}: Name is required")
+                        return
+                    
+                    if not lat_str or not lon_str:
+                        messagebox.showerror("Validation Error", f"Stop {i+1}: Latitude and Longitude are required")
+                        return
+                    
+                    try:
+                        lat = float(lat_str)
+                        lon = float(lon_str)
+                    except ValueError:
+                        messagebox.showerror("Validation Error", f"Stop {i+1}: Invalid coordinates. Use decimal format (e.g., 33.4484)")
+                        return
+                    
+                    if not (-90 <= lat <= 90):
+                        messagebox.showerror("Validation Error", f"Stop {i+1}: Latitude must be between -90 and 90")
+                        return
+                    
+                    if not (-180 <= lon <= 180):
+                        messagebox.showerror("Validation Error", f"Stop {i+1}: Longitude must be between -180 and 180")
+                        return
+                    
+                    new_stops.append({
+                        'name': name,
+                        'latitude': lat,
+                        'longitude': lon,
+                        'description': desc
+                    })
+                
+                # Validate settings
+                try:
+                    new_radius = int(radius_var.get())
+                    if new_radius < 10 or new_radius > 10000:
+                        raise ValueError()
+                except:
+                    messagebox.showerror("Validation Error", "Radius must be a number between 10 and 10000")
+                    return
+                
+                try:
+                    new_min_occur = int(min_var.get())
+                    if new_min_occur < 2 or new_min_occur > 5:
+                        raise ValueError()
+                except:
+                    messagebox.showerror("Validation Error", "Minimum occurrences must be between 2 and 5")
+                    return
+                
+                # Load existing config and update
+                try:
+                    with open('config.json', 'r') as f:
+                        config = json.load(f)
+                except:
+                    config = {}
+                
+                config['stop_comparison'] = {
+                    'enabled': True,
+                    'radius_meters': new_radius,
+                    'minimum_occurrences': new_min_occur,
+                    'stops': new_stops
+                }
+                
+                # Save config
+                with open('config.json', 'w') as f:
+                    json.dump(config, f, indent=2)
+                
+                self.log_message(f"✅ Saved {len(new_stops)} stops to config.json")
+                self._update_stop_comparison_status()
+                
+                messagebox.showinfo("Success", f"Configuration saved!\n\n{len(new_stops)} stops configured.")
+                config_window.destroy()
+                
             except Exception as e:
-                self.log_message(f"Could not open editor: {e}")
-                self.log_message("Please edit config.json manually")
+                messagebox.showerror("Error", f"Failed to save configuration: {e}")
+        
+        # Initialize stop fields
+        update_stop_fields()
+        
+        # Bind spinbox change event
+        num_stops_spinbox.bind('<Return>', lambda e: update_stop_fields())
+        num_stops_spinbox.bind('<FocusOut>', lambda e: update_stop_fields())
+        
+        # Button frame
+        button_frame = tk.Frame(main_frame, bg='#1a1a1a')
+        button_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        # Save button
+        save_btn = tk.Button(
+            button_frame,
+            text="💾 Save Configuration",
+            font=('Arial', 11, 'bold'),
+            fg='#ffffff',
+            bg='#28a745',
+            activebackground='#1e7e34',
+            padx=20,
+            pady=10,
+            command=save_configuration
+        )
+        save_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Cancel button
+        cancel_btn = tk.Button(
+            button_frame,
+            text="Cancel",
+            font=('Arial', 11),
+            fg='#ffffff',
+            bg='#6c757d',
+            activebackground='#545b62',
+            padx=20,
+            pady=10,
+            command=config_window.destroy
+        )
+        cancel_btn.pack(side=tk.LEFT)
+        
+        # Help text
+        help_label = tk.Label(
+            main_frame,
+            text="💡 Tip: Get coordinates from Google Maps by right-clicking a location",
+            font=('Arial', 9),
+            fg='#888888',
+            bg='#1a1a1a'
+        )
+        help_label.pack(pady=(15, 0))
             
     def quit_application(self):
         """Quit application with cleanup"""
