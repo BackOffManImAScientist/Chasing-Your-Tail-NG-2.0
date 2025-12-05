@@ -17,13 +17,14 @@ This project has been security-hardened to eliminate critical vulnerabilities:
 - **Real-time Wi-Fi monitoring** with Kismet integration
 - **Advanced surveillance detection** with persistence scoring
 - **🆕 Automatic GPS integration** - extracts coordinates from Bluetooth GPS via Kismet
+- **🆕 Stop Comparison Analysis** - Compare BSSIDs, SSIDs, and Probe Requests across multiple predetermined locations
 - **GPS correlation** and location clustering (100m threshold)
 - **Spectacular KML visualization** for Google Earth with professional styling and interactive content
 - **Multi-format reporting** - Markdown, HTML (with pandoc), and KML outputs
 - **Time-window tracking** (5, 10, 15, 20 minute windows)
 - **WiGLE API integration** for SSID geolocation
 - **Multi-location tracking algorithms** for detecting following behavior
-- **Enhanced GUI interface** with surveillance analysis button
+- **Enhanced GUI interface** with surveillance analysis and stop comparison buttons
 - **Organized file structure** with dedicated output directories
 - **Comprehensive logging** and analysis tools
 
@@ -58,6 +59,7 @@ Edit `config.json` with your paths and settings:
 - Log and ignore list directories
 - Time window configurations
 - Geographic search boundaries
+- Stop comparison locations (see below)
 
 ## Usage
 
@@ -65,10 +67,16 @@ Edit `config.json` with your paths and settings:
 ```bash
 python3 cyt_gui.py  # Enhanced GUI with surveillance analysis
 ```
+
 **GUI Features:**
-- 🗺️ **Surveillance Analysis** button - GPS-correlated persistence detection with spectacular KML visualization
-- 📈 **Analyze Logs** button - Historical probe request analysis
-- Real-time status monitoring and file generation notifications
+- 📊 **Check System Status** - Verify Kismet and database connectivity
+- 📝 **Create Ignore Lists** - Generate ignore lists from current Kismet data
+- 🗑️ **Delete Ignore Lists** - Remove existing ignore lists
+- 🚀 **START CHASING YOUR TAIL** - Begin real-time monitoring
+- 📈 **Analyze Logs** - Historical probe request analysis
+- 🗺️ **Surveillance Analysis** - GPS-correlated persistence detection with KML visualization
+- 📍 **Stop Comparison** - Compare devices across predetermined locations
+- ⚙️ **Configure Stops** - GUI to set up comparison stop locations
 
 ### Command Line Monitoring
 ```bash
@@ -96,7 +104,7 @@ python3 probe_analyzer.py --wigle
 
 ### Surveillance Detection & Advanced Visualization
 ```bash
-# 🆕 NEW: Automatic GPS extraction with spectacular KML visualization
+# Automatic GPS extraction with spectacular KML visualization
 python3 surveillance_analyzer.py
 
 # Run analysis with demo GPS data (for testing - uses Phoenix coordinates)
@@ -115,6 +123,120 @@ python3 surveillance_analyzer.py --output-json analysis_results.json
 python3 surveillance_analyzer.py --gps-file gps_coordinates.json
 ```
 
+---
+
+## 🆕 Stop Comparison Feature
+
+The Stop Comparison feature allows you to define 2-5 predetermined GPS locations (stops) and identify any BSSIDs, SSIDs, or Probe Requests that appear at multiple locations. This is useful for detecting if the same device is following you across different places.
+
+### How It Works
+
+1. **Define your stops** - Set 2-5 GPS coordinates for places you regularly visit (home, work, coffee shop, etc.)
+2. **Collect data** - Run Kismet at each location to capture wireless data
+3. **Run comparison** - Click "Stop Comparison" to analyze which devices appeared at multiple stops
+4. **Review report** - Get a detailed report showing suspicious devices that followed you
+
+### Configuring Stops via GUI
+
+1. Click **⚙️ Configure Stops** in the GUI
+2. Select the number of stops (2-5)
+3. For each stop, enter:
+   - **Name** - A friendly name (e.g., "Home", "Office")
+   - **Latitude** - GPS latitude in decimal format (e.g., 33.4484)
+   - **Longitude** - GPS longitude in decimal format (e.g., -112.0740)
+   - **Description** - Optional notes
+4. Click **💾 Save Configuration**
+
+**💡 Tip:** Get coordinates from Google Maps by right-clicking any location and selecting the coordinates.
+
+### Configuring Stops via config.json
+
+Add the `stop_comparison` section to your `config.json`:
+
+```json
+{
+  "paths": {
+    "kismet_logs": "/path/to/kismet/*.kismet",
+    "log_dir": "logs"
+  },
+  "stop_comparison": {
+    "enabled": true,
+    "radius_meters": 100,
+    "minimum_occurrences": 2,
+    "stops": [
+      {
+        "name": "Home",
+        "latitude": 33.4484,
+        "longitude": -112.0740,
+        "description": "Starting location"
+      },
+      {
+        "name": "Coffee Shop",
+        "latitude": 33.4500,
+        "longitude": -112.0760,
+        "description": "Morning stop"
+      },
+      {
+        "name": "Office",
+        "latitude": 33.4520,
+        "longitude": -112.0800,
+        "description": "Work destination"
+      }
+    ]
+  }
+}
+```
+
+### Stop Comparison Settings
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `enabled` | Enable/disable the feature | `true` |
+| `radius_meters` | How close a device must be to a stop to count | `100` |
+| `minimum_occurrences` | Minimum stops a device must appear at to be flagged | `2` |
+| `stops` | Array of 2-5 stop locations | `[]` |
+
+### Running Stop Comparison
+
+**Via GUI:**
+1. Click **📍 Stop Comparison** button
+2. Wait for analysis to complete
+3. View results in the Output Log
+4. Optionally open the HTML report in your browser
+
+**Via Command Line:**
+```bash
+# Run stop comparison analysis
+python3 stop_comparison_analyzer.py
+
+# Run with demo data (for testing)
+python3 stop_comparison_analyzer.py --demo
+
+# Generate only text report
+python3 stop_comparison_analyzer.py --format text
+
+# Generate only HTML report
+python3 stop_comparison_analyzer.py --format html
+```
+
+### Understanding the Report
+
+The Stop Comparison report shows:
+
+- **Configured Stops** - Your defined locations
+- **Data Summary** - How many BSSIDs, SSIDs, and Probes were found at each stop
+- **Suspicious Devices** - Devices that appeared at 2+ stops, including:
+  - **BSSIDs** - MAC addresses of access points/devices
+  - **SSIDs** - Network names being broadcast
+  - **Probe Requests** - Networks that devices are searching for
+
+**⚠️ Devices at multiple stops may indicate:**
+- Surveillance vehicles with mobile hotspots
+- Your own devices (add to ignore list)
+- Common networks (carrier hotspots, chain store WiFi)
+
+---
+
 ### Ignore List Management
 ```bash
 # Create new ignore lists from current Kismet data
@@ -125,11 +247,12 @@ python3 legacy/create_ignore_list.py  # Moved to legacy folder
 ## Core Components
 
 - **chasing_your_tail.py**: Core monitoring engine with real-time Kismet database queries
-- **cyt_gui.py**: Enhanced Tkinter GUI with surveillance analysis capabilities
+- **cyt_gui.py**: Enhanced Tkinter GUI with surveillance analysis and stop comparison capabilities
 - **surveillance_analyzer.py**: GPS surveillance detection with automatic coordinate extraction and advanced KML visualization
 - **surveillance_detector.py**: Core persistence detection engine for suspicious device patterns
 - **gps_tracker.py**: GPS tracking with location clustering and spectacular Google Earth KML generation
 - **probe_analyzer.py**: Post-processing tool with WiGLE integration
+- **stop_comparison_analyzer.py**: Multi-stop comparison analysis for detecting following behavior
 - **start_kismet_clean.sh**: ONLY working Kismet startup script (July 23, 2025 fix)
 
 ### Security Components
@@ -145,6 +268,7 @@ python3 legacy/create_ignore_list.py  # Moved to legacy folder
 ### Organized Output Directories
 - **Surveillance Reports**: `./surveillance_reports/surveillance_report_YYYYMMDD_HHMMSS.md` (markdown)
 - **HTML Reports**: `./surveillance_reports/surveillance_report_YYYYMMDD_HHMMSS.html` (styled HTML with pandoc)
+- **Stop Comparison Reports**: `./surveillance_reports/stop_comparison_YYYYMMDD_HHMMSS.html` (HTML) and `.txt` (text)
 - **KML Visualizations**: `./kml_files/surveillance_analysis_YYYYMMDD_HHMMSS.kml` (spectacular Google Earth files)
 - **CYT Logs**: `./logs/cyt_log_MMDDYY_HHMMSS`
 - **Analysis Logs**: `./analysis_logs/surveillance_analysis.log`
@@ -190,19 +314,35 @@ Advanced persistence detection algorithms analyze device behavior patterns:
   - Temporal analysis overlays for time-based pattern detection
 - **Multi-location tracking** detects devices following across locations with visual tracking paths
 
+### Stop Comparison Analysis
+- **Haversine distance calculation** for accurate GPS proximity matching
+- **Configurable search radius** (default 100m) around each stop
+- **Multi-category tracking**: BSSIDs, SSIDs, and Probe Requests
+- **Minimum occurrence threshold** to filter noise
+- **Dual-format reporting**: Text and styled HTML reports
+
 ## Configuration
 
 All settings are centralized in `config.json`:
 ```json
 {
-  "kismet_db_path": "/path/to/kismet/*.kismet",
-  "log_directory": "./logs/",
-  "ignore_lists_directory": "./ignore_lists/",
-  "time_windows": {
-    "recent": 5,
-    "medium": 10,
-    "old": 15,
-    "oldest": 20
+  "paths": {
+    "kismet_logs": "/path/to/kismet/*.kismet",
+    "log_dir": "./logs/"
+  },
+  "timing": {
+    "time_windows": {
+      "recent": 5,
+      "medium": 10,
+      "old": 15,
+      "oldest": 20
+    }
+  },
+  "stop_comparison": {
+    "enabled": true,
+    "radius_meters": 100,
+    "minimum_occurrences": 2,
+    "stops": []
   }
 }
 ```
