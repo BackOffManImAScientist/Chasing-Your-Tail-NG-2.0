@@ -519,8 +519,8 @@ class CYTGui:
                         
                 self.log_message(f"✅ Found {len(mac_list)} unique MAC addresses")
                 
-                # Get SSIDs from probe requests
-                cursor.execute("SELECT device FROM devices WHERE device LIKE '%dot11.probedssid.ssid%'")
+                # Get SSIDs - both advertised (from APs) and probed (from clients)
+                cursor.execute("SELECT device FROM devices WHERE device LIKE '%ssid%'")
                 device_rows = cursor.fetchall()
                 
                 ssid_list = []
@@ -528,12 +528,41 @@ class CYTGui:
                     try:
                         device_json = json.loads(row[0])
                         dot11_device = device_json.get('dot11.device', {})
+                        
                         if dot11_device:
+                            # Get advertised SSIDs (from Access Points)
+                            advertised_map = dot11_device.get('dot11.device.advertised_ssid_map', [])
+                            if isinstance(advertised_map, list):
+                                for entry in advertised_map:
+                                    if isinstance(entry, dict):
+                                        ssid = entry.get('dot11.advertisedssid.ssid')
+                                        if ssid and ssid not in ssid_list:
+                                            ssid_list.append(ssid)
+                            
+                            # Get last advertised SSID
+                            last_adv = dot11_device.get('dot11.device.last_beaconed_ssid_record', {})
+                            if isinstance(last_adv, dict):
+                                ssid = last_adv.get('dot11.advertisedssid.ssid')
+                                if ssid and ssid not in ssid_list:
+                                    ssid_list.append(ssid)
+                            
+                            # Get probed SSIDs (from client devices)
                             last_probe = dot11_device.get('dot11.device.last_probed_ssid_record', {})
-                            ssid = last_probe.get('dot11.probedssid.ssid')
-                            if ssid and ssid not in ssid_list:
-                                ssid_list.append(ssid)
-                    except (json.JSONDecodeError, KeyError):
+                            if isinstance(last_probe, dict):
+                                ssid = last_probe.get('dot11.probedssid.ssid')
+                                if ssid and ssid not in ssid_list:
+                                    ssid_list.append(ssid)
+                            
+                            # Get probed SSID map
+                            probed_map = dot11_device.get('dot11.device.probed_ssid_map', [])
+                            if isinstance(probed_map, list):
+                                for entry in probed_map:
+                                    if isinstance(entry, dict):
+                                        ssid = entry.get('dot11.probedssid.ssid')
+                                        if ssid and ssid not in ssid_list:
+                                            ssid_list.append(ssid)
+                                            
+                    except (json.JSONDecodeError, KeyError, TypeError):
                         continue
                         
                 self.log_message(f"✅ Found {len(ssid_list)} unique SSIDs")
