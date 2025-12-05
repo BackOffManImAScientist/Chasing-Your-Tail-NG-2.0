@@ -42,12 +42,12 @@ class CYTGui:
         
     def setup_ui(self):
         """Setup the enhanced UI"""
-        self.root.title('🔒 Chasing Your Tail - BlackHat Arsenal Edition')
+        self.root.title('🔒 Chasing Your Tail')
         self.root.configure(bg='#1a1a1a')  # Dark theme
         self.root.geometry('800x480')  # Optimized for 7-inch screens
         
         # Create main container
-        main_frame = tk.Frame(self.root, bg='#1a1a1a', padx=20, pady=20)
+        main_frame = tk.Frame(self.root, bg='#1a1a1a', padx=10, pady=10)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
         # Title and status section
@@ -56,7 +56,7 @@ class CYTGui:
         # Status indicators
         self.create_status_section(main_frame)
         
-        # Main control buttons (keeping Fisher Price chunky style)
+        # Main control buttons
         self.create_control_buttons(main_frame)
         
         # Log output area
@@ -65,13 +65,13 @@ class CYTGui:
     def create_header(self, parent):
         """Create header with title and security badge"""
         header_frame = tk.Frame(parent, bg='#1a1a1a')
-        header_frame.pack(fill=tk.X, pady=(0, 20))
+        header_frame.pack(fill=tk.X, pady=(0, 8))
         
         # Main title
         title_label = tk.Label(
             header_frame,
             text="🔒 Chasing Your Tail",
-            font=('Arial', 18, 'bold'),
+            font=('Arial', 14, 'bold'),
             fg='#00ff41',  # Matrix green
             bg='#1a1a1a'
         )
@@ -81,36 +81,26 @@ class CYTGui:
         security_badge = tk.Label(
             header_frame,
             text="🛡️ SECURED",
-            font=('Arial', 10, 'bold'),
+            font=('Arial', 9, 'bold'),
             fg='#ffffff',
             bg='#ff6b35',  # Orange badge
-            padx=10,
-            pady=5
+            padx=8,
+            pady=3
         )
         security_badge.pack(side=tk.RIGHT)
-        
-        # Subtitle
-        subtitle_label = tk.Label(
-            parent,
-            text="Wi-Fi Probe Request Analyzer - BlackHat Arsenal Ready",
-            font=('Arial', 10),
-            fg='#cccccc',
-            bg='#1a1a1a'
-        )
-        subtitle_label.pack(pady=(0, 10))
         
     def create_status_section(self, parent):
         """Create status indicators section"""
         status_frame = tk.LabelFrame(
             parent,
             text="System Status",
-            font=('Arial', 10, 'bold'),
+            font=('Arial', 9, 'bold'),
             fg='#ffffff',
             bg='#2a2a2a',
-            padx=10,
-            pady=10
+            padx=8,
+            pady=5
         )
-        status_frame.pack(fill=tk.X, pady=(0, 20))
+        status_frame.pack(fill=tk.X, pady=(0, 8))
         
         # Status indicators row
         indicators_frame = tk.Frame(status_frame, bg='#2a2a2a')
@@ -119,28 +109,28 @@ class CYTGui:
         # Kismet status
         self.kismet_status = tk.Label(
             indicators_frame,
-            text="⏳ Kismet: Checking...",
-            font=('Arial', 10),
+            text="⏳ Kismet: ...",
+            font=('Arial', 9),
             fg='#ffaa00',
             bg='#2a2a2a'
         )
-        self.kismet_status.pack(side=tk.LEFT, padx=(0, 20))
+        self.kismet_status.pack(side=tk.LEFT, padx=(0, 15))
         
         # Database status
         self.db_status = tk.Label(
             indicators_frame,
-            text="⏳ Database: Checking...",
-            font=('Arial', 10),
+            text="⏳ Database: ...",
+            font=('Arial', 9),
             fg='#ffaa00',
             bg='#2a2a2a'
         )
-        self.db_status.pack(side=tk.LEFT, padx=(0, 20))
+        self.db_status.pack(side=tk.LEFT, padx=(0, 15))
         
         # Credentials status
         self.creds_status = tk.Label(
             indicators_frame,
-            text="⏳ Credentials: Checking...",
-            font=('Arial', 10),
+            text="⏳ Credentials: ...",
+            font=('Arial', 9),
             fg='#ffaa00',
             bg='#2a2a2a'
         )
@@ -153,13 +143,13 @@ class CYTGui:
         system_frame = tk.LabelFrame(
             parent,
             text="System",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 9, 'bold'),
             fg='#ffffff',
             bg='#2a2a2a',
-            padx=10,
-            pady=10
+            padx=8,
+            pady=5
         )
-        system_frame.pack(fill=tk.X, pady=(0, 10))
+        system_frame.pack(fill=tk.X, pady=(0, 8))
         
         system_row = tk.Frame(system_frame, bg='#2a2a2a')
         system_row.pack(fill=tk.X)
@@ -167,47 +157,47 @@ class CYTGui:
         # Check System Status button
         self.status_btn = tk.Button(
             system_row,
-            text="📊 Check\nSystem Status",
+            text="📊 Check Status",
             font=('Arial', 9, 'bold'),
             width=12,
-            height=2,
+            height=1,
             fg='#ffffff',
             bg='#007acc',
             activebackground='#005999',
             relief='raised',
-            bd=3,
+            bd=2,
             command=self.check_status_threaded
         )
-        self.status_btn.pack(side=tk.LEFT, padx=(0, 10))
+        self.status_btn.pack(side=tk.LEFT, padx=(0, 8))
         
         # Create Ignore Lists button
         self.create_ignore_btn = tk.Button(
             system_row,
-            text="📝 Create\nIgnore Lists",
+            text="📝 Create Ignore",
             font=('Arial', 9, 'bold'),
             width=12,
-            height=2,
+            height=1,
             fg='#ffffff',
             bg='#28a745',
             activebackground='#1e7e34',
             relief='raised',
-            bd=3,
+            bd=2,
             command=self.create_ignore_lists_threaded
         )
-        self.create_ignore_btn.pack(side=tk.LEFT, padx=(0, 10))
+        self.create_ignore_btn.pack(side=tk.LEFT, padx=(0, 8))
         
         # Delete Ignore Lists button
         self.delete_ignore_btn = tk.Button(
             system_row,
-            text="🗑️ Delete\nIgnore Lists",
+            text="🗑️ Delete Ignore",
             font=('Arial', 9, 'bold'),
             width=12,
-            height=2,
+            height=1,
             fg='#ffffff',
             bg='#dc3545',
             activebackground='#c82333',
             relief='raised',
-            bd=3,
+            bd=2,
             command=self.delete_ignore_lists
         )
         self.delete_ignore_btn.pack(side=tk.LEFT)
@@ -215,14 +205,14 @@ class CYTGui:
         # ===== SECTION 2: Time Based Surveillance Analysis =====
         time_frame = tk.LabelFrame(
             parent,
-            text="Time Based Surveillance Analysis",
-            font=('Arial', 12, 'bold'),
+            text="Time Based Surveillance",
+            font=('Arial', 9, 'bold'),
             fg='#ffffff',
             bg='#2a2a2a',
-            padx=10,
-            pady=10
+            padx=8,
+            pady=5
         )
-        time_frame.pack(fill=tk.X, pady=(0, 10))
+        time_frame.pack(fill=tk.X, pady=(0, 8))
         
         time_row = tk.Frame(time_frame, bg='#2a2a2a')
         time_row.pack(fill=tk.X)
@@ -230,63 +220,63 @@ class CYTGui:
         # Start Chasing Your Tail button
         self.run_cyt_btn = tk.Button(
             time_row,
-            text="🚀 START\nCHASING YOUR TAIL",
-            font=('Arial', 11, 'bold'),
-            width=18,
-            height=2,
+            text="🚀 START CYT",
+            font=('Arial', 10, 'bold'),
+            width=14,
+            height=1,
             fg='#ffffff',
             bg='#ff6b35',
             activebackground='#e55a2b',
             relief='raised',
-            bd=4,
+            bd=3,
             command=self.run_cyt_threaded
         )
-        self.run_cyt_btn.pack(side=tk.LEFT, padx=(0, 10))
+        self.run_cyt_btn.pack(side=tk.LEFT, padx=(0, 8))
         
         # Analyze Logs button
         self.analyze_btn = tk.Button(
             time_row,
-            text="📈 Analyze\nLogs",
+            text="📈 Analyze Logs",
             font=('Arial', 9, 'bold'),
             width=12,
-            height=2,
+            height=1,
             fg='#ffffff',
             bg='#6f42c1',
             activebackground='#5a359c',
             relief='raised',
-            bd=3,
+            bd=2,
             command=self.analyze_logs_threaded
         )
-        self.analyze_btn.pack(side=tk.LEFT, padx=(0, 10))
+        self.analyze_btn.pack(side=tk.LEFT, padx=(0, 8))
         
         # Surveillance Analysis button
         self.surveillance_btn = tk.Button(
             time_row,
-            text="🗺️ Surveillance\nAnalysis",
+            text="🗺️ Surveillance",
             font=('Arial', 9, 'bold'),
             width=12,
-            height=2,
+            height=1,
             fg='#ffffff',
             bg='#28a745',
             activebackground='#218838',
             relief='raised',
-            bd=3,
+            bd=2,
             command=self.surveillance_analysis_threaded
         )
-        self.surveillance_btn.pack(side=tk.LEFT, padx=(0, 10))
+        self.surveillance_btn.pack(side=tk.LEFT, padx=(0, 8))
         
         # Quit button
         self.quit_btn = tk.Button(
             time_row,
             text="❌ QUIT",
             font=('Arial', 9, 'bold'),
-            width=12,
-            height=2,
+            width=8,
+            height=1,
             fg='#ffffff',
             bg='#6c757d',
             activebackground='#545b62',
             relief='raised',
-            bd=3,
+            bd=2,
             command=self.quit_application
         )
         self.quit_btn.pack(side=tk.RIGHT)
@@ -294,14 +284,14 @@ class CYTGui:
         # ===== SECTION 3: Space Based Surveillance Analysis =====
         space_frame = tk.LabelFrame(
             parent,
-            text="Space Based Surveillance Analysis",
-            font=('Arial', 12, 'bold'),
+            text="Space Based Surveillance",
+            font=('Arial', 9, 'bold'),
             fg='#ffffff',
             bg='#2a2a2a',
-            padx=10,
-            pady=10
+            padx=8,
+            pady=5
         )
-        space_frame.pack(fill=tk.X, pady=(0, 10))
+        space_frame.pack(fill=tk.X, pady=(0, 8))
         
         space_row = tk.Frame(space_frame, bg='#2a2a2a')
         space_row.pack(fill=tk.X)
@@ -309,34 +299,34 @@ class CYTGui:
         # Configure Stops button
         self.config_stops_btn = tk.Button(
             space_row,
-            text="⚙️ Configure\nStops",
+            text="⚙️ Configure Stops",
             font=('Arial', 9, 'bold'),
-            width=12,
-            height=2,
+            width=14,
+            height=1,
             fg='#ffffff',
             bg='#607d8b',
             activebackground='#455a64',
             relief='raised',
-            bd=3,
+            bd=2,
             command=self.configure_stops
         )
-        self.config_stops_btn.pack(side=tk.LEFT, padx=(0, 10))
+        self.config_stops_btn.pack(side=tk.LEFT, padx=(0, 8))
         
         # Stop Comparison button
         self.stop_compare_btn = tk.Button(
             space_row,
-            text="📍 Stop\nComparison",
+            text="📍 Stop Comparison",
             font=('Arial', 9, 'bold'),
-            width=12,
-            height=2,
+            width=14,
+            height=1,
             fg='#ffffff',
             bg='#9c27b0',
             activebackground='#7b1fa2',
             relief='raised',
-            bd=3,
+            bd=2,
             command=self.stop_comparison_threaded
         )
-        self.stop_compare_btn.pack(side=tk.LEFT, padx=(0, 10))
+        self.stop_compare_btn.pack(side=tk.LEFT, padx=(0, 8))
         
         # Stop comparison status label
         self.stop_status_label = tk.Label(
@@ -346,7 +336,7 @@ class CYTGui:
             fg='#888888',
             bg='#2a2a2a'
         )
-        self.stop_status_label.pack(side=tk.LEFT, padx=10)
+        self.stop_status_label.pack(side=tk.LEFT, padx=8)
         self._update_stop_comparison_status()
         
         # Disable if module not available
@@ -359,19 +349,19 @@ class CYTGui:
         log_frame = tk.LabelFrame(
             parent,
             text="Output Log",
-            font=('Arial', 10, 'bold'),
+            font=('Arial', 9, 'bold'),
             fg='#ffffff',
             bg='#2a2a2a',
-            padx=10,
-            pady=10
+            padx=8,
+            pady=5
         )
         log_frame.pack(fill=tk.BOTH, expand=True)
         
         # Log text area with dark theme
         self.log_text = scrolledtext.ScrolledText(
             log_frame,
-            height=10,
-            font=('Courier', 14),
+            height=6,
+            font=('Courier', 10),
             bg='#000000',
             fg='#00ff41',  # Matrix green text
             insertbackground='#00ff41',
@@ -381,12 +371,7 @@ class CYTGui:
         
         # Initial welcome message
         self.log_message("🔒 CYT Enhanced GUI - Security Hardened Edition")
-        self.log_message("=" * 50)
-        self.log_message("All SQL injection vulnerabilities eliminated ✅")
-        self.log_message("Credential encryption active ✅") 
-        self.log_message("Input validation enabled ✅")
-        self.log_message("Ready for BlackHat Arsenal demo! 🎯")
-        self.log_message("")
+        self.log_message("Ready! ✅")
         
     def log_message(self, message):
         """Add message to log with timestamp"""
@@ -405,9 +390,9 @@ class CYTGui:
         # Check Kismet
         kismet_running = self.check_kismet_running()
         if kismet_running:
-            self.kismet_status.config(text="✅ Kismet: Running", fg='#28a745')
+            self.kismet_status.config(text="✅ Kismet: On", fg='#28a745')
         else:
-            self.kismet_status.config(text="❌ Kismet: Not Running", fg='#dc3545')
+            self.kismet_status.config(text="❌ Kismet: Off", fg='#dc3545')
             
         # Check database
         db_file, db_error = self.check_kismet_db()
