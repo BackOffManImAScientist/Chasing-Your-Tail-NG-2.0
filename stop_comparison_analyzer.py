@@ -1073,6 +1073,8 @@ class StopComparisonAnalyzer:
     def analyze_kismet_database(self, db_path: str) -> int:
         """
         Analyze a Kismet database for wireless devices near configured stops.
+        Uses the packets table for accurate per-location GPS tracking instead
+        of averaged coordinates from the devices table.
         Returns count of devices processed.
         """
         if not os.path.exists(db_path):
@@ -1085,136 +1087,189 @@ class StopComparisonAnalyzer:
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             
-            # Query devices with GPS coordinates
+            # Build a MAC -> SSID mapping from devices table
+            # This lets us associate packets (which only have MAC) with SSIDs
+            mac_to_ssid = {}
+            mac_to_probed_ssid = {}
+            
             cursor.execute("""
-                SELECT 
-                    devmac,
-                    type,
-                    device,
-                    avg_lat,
-                    avg_lon,
-                    first_time,
-                    last_time,
-                    strongest_signal
-                FROM devices
-                WHERE avg_lat IS NOT NULL 
-                AND avg_lon IS NOT NULL
-                AND avg_lat != 0 
-                AND avg_lon != 0
+                SELECT devmac, device FROM devices 
+                WHERE device IS NOT NULL
             """)
             
-            devices = cursor.fetchall()
+            for row in cursor.fetchall():
+                mac = row[0]
+                device_json = row[1]
+                if device_json:
+                    try:
+                        data = json.loads(device_json)
+                        dot11 = data.get('dot11.device', {})
+                        
+                        # Get advertised SSID (AP beacon)
+                        advertised = dot11.get('dot11.device.last_beaconed_ssid_record', {})
+                        adv_ssid = advertised.get('dot11.advertisedssid.ssid')
+                        if adv_ssid:
+                            mac_to_ssid[mac] = adv_ssid
+                        
+                        # Get probed SSID (client probe request)
+                        probe_record = dot11.get('dot11.device.last_probed_ssid_record', {})
+                        probed_ssid = probe_record.get('dot11.probedssid.ssid')
+                        if probed_ssid:
+                            mac_to_probed_ssid[mac] = probed_ssid
+                            
+                    except (json.JSONDecodeError, KeyError):
+                        pass
             
-            for device in devices:
+            logger.info(f"Built SSID mapping: {len(mac_to_ssid)} APs, {len(mac_to_probed_ssid)} probing clients")
+            
+            # Now query packets table for actual per-location GPS data
+            # Group by MAC and rounded GPS to avoid processing every single packet
+            cursor.execute("""
+                SELECT 
+                    sourcemac,
+                    ROUND(lat, 4) as rlat,
+                    ROUND(lon, 4) as rlon,
+                    MIN(ts_sec) as first_seen,
+                    MAX(ts_sec) as last_seen,
+                    MAX(signal) as best_signal,
+                    COUNT(*) as packet_count
+                FROM packets
+                WHERE lat IS NOT NULL 
+                AND lon IS NOT NULL
+                AND lat != 0 
+                AND lon != 0
+                GROUP BY sourcemac, rlat, rlon
+            """)
+            
+            packet_locations = cursor.fetchall()
+            logger.info(f"Processing {len(packet_locations)} unique MAC/location combinations from packets table")
+            
+            for row in packet_locations:
                 try:
-                    mac = device[0]
-                    dev_type = device[1]
-                    device_json = device[2]
-                    lat = device[3]
-                    lon = device[4]
-                    first_time = device[5]
-                    last_time = device[6]
-                    signal = device[7]
+                    mac = row[0]
+                    lat = row[1]
+                    lon = row[2]
+                    first_time = row[3]
+                    last_time = row[4]
+                    signal = row[5]
+                    packet_count = row[6]
                     
-                    if lat and lon:
-                        stop = self.find_nearest_stop(lat, lon)
-                        if stop:
-                            # Parse timestamps
-                            try:
-                                first_dt = datetime.fromtimestamp(first_time) if first_time else None
-                                last_dt = datetime.fromtimestamp(last_time) if last_time else None
-                            except:
-                                first_dt = None
-                                last_dt = None
-                            
-                            # Track BSSID
-                            if mac:
-                                self.bssids_by_stop[stop.name].add(mac)
-                                device_key = f"BSSID:{mac}"
-                                if device_key not in self.devices:
-                                    self.devices[device_key] = WirelessDevice(
-                                        identifier=mac,
-                                        identifier_type='BSSID',
-                                        manufacturer=self.lookup_manufacturer(mac)
-                                    )
-                                dev = self.devices[device_key]
-                                dev.stops_seen.add(stop.name)
-                                
-                                # Track signal by stop (keep strongest)
-                                if signal:
-                                    if stop.name not in dev.signal_by_stop or signal > dev.signal_by_stop[stop.name]:
-                                        dev.signal_by_stop[stop.name] = signal
-                                    dev.signal_strength = signal
-                                
-                                # Track timestamps by stop
-                                if stop.name not in dev.timestamps_by_stop:
-                                    dev.timestamps_by_stop[stop.name] = []
-                                if first_dt:
-                                    dev.timestamps_by_stop[stop.name].append(first_dt)
-                                if last_dt and last_dt != first_dt:
-                                    dev.timestamps_by_stop[stop.name].append(last_dt)
-                                
-                                # Update first/last seen
-                                if first_dt:
-                                    if dev.first_seen is None or first_dt < dev.first_seen:
-                                        dev.first_seen = first_dt
-                                if last_dt:
-                                    if dev.last_seen is None or last_dt > dev.last_seen:
-                                        dev.last_seen = last_dt
-                            
-                            # Extract SSIDs from device JSON
-                            if device_json:
-                                try:
-                                    data = json.loads(device_json)
-                                    dot11 = data.get('dot11.device', {})
-                                    
-                                    # Get probed SSIDs
-                                    probe_record = dot11.get('dot11.device.last_probed_ssid_record', {})
-                                    probed_ssid = probe_record.get('dot11.probedssid.ssid')
-                                    if probed_ssid:
-                                        self.probes_by_stop[stop.name].add(probed_ssid)
-                                        device_key = f"PROBE:{probed_ssid}"
-                                        if device_key not in self.devices:
-                                            self.devices[device_key] = WirelessDevice(
-                                                identifier=probed_ssid,
-                                                identifier_type='PROBE'
-                                            )
-                                        dev = self.devices[device_key]
-                                        dev.stops_seen.add(stop.name)
-                                        if stop.name not in dev.timestamps_by_stop:
-                                            dev.timestamps_by_stop[stop.name] = []
-                                        if first_dt:
-                                            dev.timestamps_by_stop[stop.name].append(first_dt)
-                                    
-                                    # Get advertised SSID (if AP)
-                                    advertised = dot11.get('dot11.device.last_beaconed_ssid_record', {})
-                                    adv_ssid = advertised.get('dot11.advertisedssid.ssid')
-                                    if adv_ssid:
-                                        self.ssids_by_stop[stop.name].add(adv_ssid)
-                                        device_key = f"SSID:{adv_ssid}"
-                                        if device_key not in self.devices:
-                                            self.devices[device_key] = WirelessDevice(
-                                                identifier=adv_ssid,
-                                                identifier_type='SSID'
-                                            )
-                                        dev = self.devices[device_key]
-                                        dev.stops_seen.add(stop.name)
-                                        if stop.name not in dev.timestamps_by_stop:
-                                            dev.timestamps_by_stop[stop.name] = []
-                                        if first_dt:
-                                            dev.timestamps_by_stop[stop.name].append(first_dt)
-                                        
-                                except (json.JSONDecodeError, KeyError):
-                                    pass
-                            
-                            count += 1
+                    if not mac or not lat or not lon:
+                        continue
+                    
+                    # Find nearest stop for this specific location
+                    stop = self.find_nearest_stop(lat, lon)
+                    if not stop:
+                        continue  # This location isn't near any configured stop
+                    
+                    # Parse timestamps
+                    try:
+                        first_dt = datetime.fromtimestamp(first_time) if first_time else None
+                        last_dt = datetime.fromtimestamp(last_time) if last_time else None
+                    except:
+                        first_dt = None
+                        last_dt = None
+                    
+                    # Track BSSID at this stop
+                    self.bssids_by_stop[stop.name].add(mac)
+                    device_key = f"BSSID:{mac}"
+                    if device_key not in self.devices:
+                        self.devices[device_key] = WirelessDevice(
+                            identifier=mac,
+                            identifier_type='BSSID',
+                            manufacturer=self.lookup_manufacturer(mac)
+                        )
+                    dev = self.devices[device_key]
+                    dev.stops_seen.add(stop.name)
+                    
+                    # Track signal by stop (keep strongest)
+                    if signal:
+                        if stop.name not in dev.signal_by_stop or signal > dev.signal_by_stop[stop.name]:
+                            dev.signal_by_stop[stop.name] = signal
+                        if dev.signal_strength is None or signal > dev.signal_strength:
+                            dev.signal_strength = signal
+                    
+                    # Track timestamps by stop
+                    if stop.name not in dev.timestamps_by_stop:
+                        dev.timestamps_by_stop[stop.name] = []
+                    if first_dt:
+                        dev.timestamps_by_stop[stop.name].append(first_dt)
+                    if last_dt and last_dt != first_dt:
+                        dev.timestamps_by_stop[stop.name].append(last_dt)
+                    
+                    # Update first/last seen
+                    if first_dt:
+                        if dev.first_seen is None or first_dt < dev.first_seen:
+                            dev.first_seen = first_dt
+                    if last_dt:
+                        if dev.last_seen is None or last_dt > dev.last_seen:
+                            dev.last_seen = last_dt
+                    
+                    # If this MAC has an associated SSID, track the SSID at this stop too
+                    if mac in mac_to_ssid:
+                        ssid = mac_to_ssid[mac]
+                        self.ssids_by_stop[stop.name].add(ssid)
+                        ssid_key = f"SSID:{ssid}"
+                        if ssid_key not in self.devices:
+                            self.devices[ssid_key] = WirelessDevice(
+                                identifier=ssid,
+                                identifier_type='SSID'
+                            )
+                        ssid_dev = self.devices[ssid_key]
+                        ssid_dev.stops_seen.add(stop.name)
+                        
+                        # Track signal and timestamps for SSID too
+                        if signal:
+                            if stop.name not in ssid_dev.signal_by_stop or signal > ssid_dev.signal_by_stop[stop.name]:
+                                ssid_dev.signal_by_stop[stop.name] = signal
+                            if ssid_dev.signal_strength is None or signal > ssid_dev.signal_strength:
+                                ssid_dev.signal_strength = signal
+                        
+                        if stop.name not in ssid_dev.timestamps_by_stop:
+                            ssid_dev.timestamps_by_stop[stop.name] = []
+                        if first_dt:
+                            ssid_dev.timestamps_by_stop[stop.name].append(first_dt)
+                        
+                        if first_dt:
+                            if ssid_dev.first_seen is None or first_dt < ssid_dev.first_seen:
+                                ssid_dev.first_seen = first_dt
+                        if last_dt:
+                            if ssid_dev.last_seen is None or last_dt > ssid_dev.last_seen:
+                                ssid_dev.last_seen = last_dt
+                    
+                    # If this MAC has probed for an SSID, track that too
+                    if mac in mac_to_probed_ssid:
+                        probed = mac_to_probed_ssid[mac]
+                        self.probes_by_stop[stop.name].add(probed)
+                        probe_key = f"PROBE:{probed}"
+                        if probe_key not in self.devices:
+                            self.devices[probe_key] = WirelessDevice(
+                                identifier=probed,
+                                identifier_type='PROBE'
+                            )
+                        probe_dev = self.devices[probe_key]
+                        probe_dev.stops_seen.add(stop.name)
+                        
+                        if stop.name not in probe_dev.timestamps_by_stop:
+                            probe_dev.timestamps_by_stop[stop.name] = []
+                        if first_dt:
+                            probe_dev.timestamps_by_stop[stop.name].append(first_dt)
+                        
+                        if first_dt:
+                            if probe_dev.first_seen is None or first_dt < probe_dev.first_seen:
+                                probe_dev.first_seen = first_dt
+                        if last_dt:
+                            if probe_dev.last_seen is None or last_dt > probe_dev.last_seen:
+                                probe_dev.last_seen = last_dt
+                    
+                    count += 1
                 
                 except Exception as e:
-                    logger.debug(f"Error processing device: {e}")
+                    logger.debug(f"Error processing packet location: {e}")
                     continue
             
             conn.close()
-            logger.info(f"Analyzed {count} devices from: {db_path}")
+            logger.info(f"Analyzed {count} device/location pairs from: {db_path}")
             
         except sqlite3.Error as e:
             logger.error(f"Database error: {e}")
