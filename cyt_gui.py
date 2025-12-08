@@ -520,7 +520,8 @@ class CYTGui:
                 self.log_message(f"✅ Found {len(mac_list)} unique MAC addresses")
                 
                 # Get SSIDs - both advertised (from APs) and probed (from clients)
-                cursor.execute("SELECT device FROM devices WHERE device LIKE '%ssid%'")
+                # Note: device column is stored as BLOB, must CAST to TEXT for LIKE to work
+                cursor.execute("SELECT device FROM devices WHERE CAST(device AS TEXT) LIKE '%ssid%'")
                 device_rows = cursor.fetchall()
                 
                 ssid_list = []
