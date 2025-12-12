@@ -2,7 +2,7 @@
   "paths": {
     "base_dir": ".",
     "log_dir": "logs",
-    "kismet_logs": "/home/student/Chasing-Your-Tail-NG/kismetlogs/*.kismet",
+    "kismet_logs": "/home/student/Chasing-Your-Tail-NG-2.0/kismetlogs/*.kismet",
     "ignore_lists": {
       "mac": "mac_list.json",
       "ssid": "ssid_list.json"
